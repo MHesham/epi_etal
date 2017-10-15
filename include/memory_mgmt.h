@@ -1,4 +1,7 @@
-#pragma once
+#ifndef __MEMORY_MGMT_H__
+#define __MEMORY_MGMT_H__
+
+#include "common.h"
 
 template<size_t POOL_SIZE = 4096UL>
 class var_memory_pool {
@@ -16,7 +19,7 @@ public:
     free_list_head->free = 1;
     free_list_head->next = nullptr;
 
-    cout << "pool initialized" << endl;
+    std::cout << "pool initialized" << std::endl;
     dump();
   }
 
@@ -41,8 +44,8 @@ public:
       }
       result = static_cast<void*>(curr + 1);
     }
-    
-    cout << "alloc(" << size << ")" << endl;
+
+    std::cout << "alloc(" << size << ")" << std::endl;
     dump();
     return result;
   }
@@ -54,23 +57,23 @@ public:
     curr->free = 1;
     merge_regions();
 
-    cout << "free(" << ptr << ")" << endl;
+    std::cout << "free(" << ptr << ")" << std::endl;
     dump();
   }
 
   void dump()
   {
-    cout << "---\nstart\t\t\tend\t\t\tsize\tfree\n";
+    std::cout << "---\nstart\t\t\tend\t\t\tsize\tfree\n";
     meta_data* curr = free_list_head;
     while (curr != nullptr) {
       uint8_t* end = reinterpret_cast<uint8_t*>(curr) + sizeof(meta_data) + curr->size - 1;
-      cout <<  curr << "\t"
+      std::cout <<  curr << "\t"
         << static_cast<void*>(end) << "\t"
         << sizeof(meta_data) << "+" << curr->size << "\t"
-        << curr->free << endl;
+        << curr->free << std::endl;
       curr = curr->next;
     }
-    cout << "---" << endl;
+    std::cout << "---" << std::endl;
   }
 
 private:
@@ -180,17 +183,97 @@ void list_node<T>::operator delete(void* ptr)
   list_node_var_pool.free(ptr);
 }
 
-void memory_pool_test()
-{
-  auto n3 = new list_node<int>(3);
-  auto n2 = new list_node<int>(2);
-  auto n1 = new list_node<int>(1);
+template<typename T>
+class SmartPtr {
+public:
+  explicit SmartPtr(T *obj) :
+    inner_(new Inner(obj))
+  {
+    inner_->AddRef();
+  }
 
-  n2->next = n3;
-  n1->next = n2;
-  list_node<int>* head = n1;
+  SmartPtr(const SmartPtr &other)
+  {
+    inner_ = other.inner_;
+    inner_->AddRef();
+  }
 
-  delete n3;
-  delete n2;
-  delete n1;
-}
+  ~SmartPtr()
+  {
+    if (inner_->Release() == 0) {
+      delete inner_;
+    }
+  }
+
+  SmartPtr& operator=(const SmartPtr &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    if (inner_->Release() == 0) {
+      delete inner_;
+    }
+    inner_ = other.inner_;
+    inner_->AddRef();
+
+    return *this;
+  }
+
+  T& operator*()
+  {
+    return *Get();
+  }
+
+  T* operator->()
+  {
+    return Get();
+  }
+
+  T* Get()
+  {
+    return inner_->Get();
+  }
+
+private:
+  class Inner {
+  public:
+    explicit Inner(T *obj) :
+      ref_count_(0),
+      obj_(obj)
+    {}
+
+    ~Inner()
+    {
+      delete obj_;
+    }
+
+    void AddRef()
+    {
+      ref_count_++;
+    }
+
+    int Release()
+    {
+      if (ref_count_ > 0) {
+        ref_count_--;
+        delete obj_;
+        obj_ = nullptr;
+      }
+      return ref_count_;
+    }
+
+    T* Get()
+    {
+        return obj_;
+    }
+
+  private:
+    int ref_count_;
+    T* obj_;
+  };
+
+  Inner *inner_;
+};
+
+#endif // __MEMORY_MGMT_H__

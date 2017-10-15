@@ -1,5 +1,8 @@
-#pragma once
+#ifndef __EPI_H__
+#define __EPI_H__
 
+#include "common.h"
+using namespace std;
 
 void removeDuplicates(char str[], int length)
 {
@@ -16,7 +19,7 @@ void removeDuplicates(char str[], int length)
 
   // Find duplicates and mark them in the table
   for (int i = 0; i < length; ++i) {
-    char c = str[i];
+    size_t c = str[i];
     if (!found[c]) {
       found[c] = true;
     } else {
@@ -156,7 +159,7 @@ int c5_6_longest_equal_subarray(vector<int> arr)
   int begin = -1, end = 0;
   int n = INT_MIN;
 
-  while (end < arr.size()) {
+  while (end < (int)arr.size()) {
     if (arr[end] != n) {
       ans = max(ans, end - begin);
       n = arr[end];
@@ -191,8 +194,8 @@ void c18_2_paint_a_boolean_matrix(int row, int col, vector<deque<int>>& matrix)
   while (!s.empty()) {
     auto curr = s.top();
     s.pop();
-    bool is_feasible = (curr.first >= 0 && curr.first < matrix.size() &&
-                        curr.second >= 0 && curr.second < matrix[0].size());
+    bool is_feasible = (curr.first >= 0 && curr.first < (int)matrix.size() &&
+                        curr.second >= 0 && curr.second < (int)matrix[0].size());
     if (!is_feasible ||
         matrix[curr.first][curr.second] == target_color)
       continue;
@@ -238,7 +241,7 @@ void reverseWords(string &s) {
   int lo = 0, hi = s.size() - 1;
   while (lo < hi) swap(s[lo++], s[hi--]);
 
-  int i = 0;
+  size_t i = 0;
   while (i < s.size()) {
     while (i < s.size() && s[i] == ' ') ++i;
     lo = i;
@@ -247,9 +250,9 @@ void reverseWords(string &s) {
     while (lo < hi) swap(s[lo++], s[hi--]);
   }
 
-  int k = 0;
-  int last_word_end = INT_MIN;
-  for (int i = 0; i < s.size(); ++i) {
+  size_t k = 0;
+  size_t last_word_end = INT_MIN;
+  for (i = 0; i < s.size(); ++i) {
     if (s[i] != ' ') {
       s[k++] = s[i];
       last_word_end = i;
@@ -548,7 +551,7 @@ bool has_cycle_dfs(DirectedGraph* graph, NodeId u, vector<NodeColor>& color) {
 bool c18_4_detect_graph_cycle(DirectedGraph* graph)
 {
   vector<NodeColor> color(graph->nodes.size(), White);
-  for (int i = 0; i < graph->nodes.size(); ++i) {
+  for (size_t i = 0; i < graph->nodes.size(); ++i) {
     if (color[i] == White && has_cycle_dfs(graph, i, color))
       return true;
   }
@@ -587,7 +590,7 @@ void topo_dfs(DirectedGraph* g, NodeId u, deque<bool>& visited, stack<NodeId>& o
 stack<NodeId> topo_ordering(DirectedGraph* g) {
   deque<bool> visited(g->nodes.size(), false);
   stack<NodeId> ordering;
-  for (int i = 0; i < g->nodes.size(); ++i) {
+  for (size_t i = 0; i < g->nodes.size(); ++i) {
     if (!visited[i]) {
       topo_dfs(g, i, visited, ordering);
     }
@@ -616,3 +619,36 @@ void c18_8_photo_day_test() {
   }
   cout << endl;
 }
+
+// 0x12
+// 0001 0010
+
+bool get_bit(size_t bi, const vector<uint8_t>& stream) {
+  size_t by = bi / 8;
+  size_t shft = bi % 8;
+  return stream[by] & (1 << (7 - shft));
+}
+
+uint32_t count_occ(const std::vector<uint8_t>& stream, const std::deque<bool> pattern) {
+  uint32_t occ = 0;
+  size_t bit_count = stream.size() * 8;
+  for (size_t i = 0; i < bit_count;) {
+    for (size_t k = i, j = 0; k < bit_count && j < pattern.size();) {
+      if (!(get_bit(k, stream) ^ pattern[j])) {
+        k++;
+        j++;
+      } else {
+        i++;
+        break;
+      }
+
+      if (j == pattern.size()) {
+        occ++;
+        i += pattern.size();
+      }
+    }
+  }
+
+  return occ;
+}
+#endif // __EPI_H__

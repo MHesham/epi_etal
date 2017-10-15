@@ -1,42 +1,16 @@
-#include <cmath>
-#include <cstdio>
-#include <cstdint>
-#include <cassert>
-#include <Windows.h>
-#include <thread>
-#include <iostream>
-#include <list>
-#include <unordered_map>
-#include <bitset>
-#include <deque>
-#include <stack>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <set>
-#include <random>
-#include <array>
-#include <atomic>
-#include <map>
-using namespace std;
 
-#include "epi.h"
-#include "parallel_computing.h"
+#include "concurrency_tests.h"
 #include "memory_mgmt.h"
+#include "epi.h"
 
-UINT64 UnsafeMulDiv64x32x64(UINT64 mul64, UINT32 mul32, UINT64 div64)
-{
-  UINT64 q = mul64 / div64;
-  UINT64 r = mul64 % div64;
-  return q * mul32 + (r * mul32) / div64;
-}
+using namespace std;
 
 void rev(string& s, int i, int j) {
   for (; i < j; ++i, --j) swap(s[i], s[j]);
 }
 
 //void reverseWords(string &s) {
-//  rev(s, 0, s.size() - 1);    
+//  rev(s, 0, s.size() - 1);
 //  int begin = 0;
 //  int end = 0;
 //  while (end < s.size()) {
@@ -49,6 +23,8 @@ void rev(string& s, int i, int j) {
 //
 //  rev(s, begin, end - 1);
 //}
+
+struct TrieNode;
 
 struct TrieNode {
   unordered_map<char, shared_ptr<TrieNode>> Children;
@@ -67,8 +43,8 @@ public:
 
   void insert(string key, int val) {
     shared_ptr<TrieNode> curr = root;
-    for (int i = 0; i < key.length(); ++i) {
-      auto res = curr->Children.emplace(key[i], new TrieNode);
+    for (size_t i = 0; i < key.length(); ++i) {
+      auto res = curr->Children.emplace(key[i], make_shared<TrieNode>());
       curr = res.first->second;
     }
 
@@ -87,7 +63,7 @@ public:
 
   int sum(string prefix) {
     shared_ptr<TrieNode> curr = root;
-    for (int i = 0; i < prefix.length(); ++i) {
+    for (size_t i = 0; i < prefix.length(); ++i) {
       auto itr = curr->Children.find(prefix[i]);
       if (itr == curr->Children.end()) return false;
       curr = itr->second;
@@ -100,16 +76,22 @@ public:
 
 int main()
 {
-  uint64_t m1[256];
-  unordered_map<char, uint64_t> m2;
-  size_t s = 0;
-  for (int c = 'a'; c <= 'z'; ++c) {
-    m2.insert({ c, 0xdeadbeef });
+  vector<uint8_t> b = { 0x12, 0x34, 0x56, 0x78 };
+
+  for (size_t i = 0; i < b.size(); ++i) {
+    cout << bitset<8>(b[i]) << " ";
   }
-  for (size_t i = 0; i < m2.bucket_count(); ++i) {
-    s += m2.bucket_size(i);
+  cout << endl;
+  for (size_t i = 0; i < b.size() * 8; ++i) {
+    if (i > 0 && i % 8 == 0) cout << " ";
+    if (get_bit(i, b)) cout << "1";
+    else cout << "0";
   }
-  cout << sizeof(m1) << endl << sizeof(m2) + s;
+  cout << endl;
+
+  auto p = { true, false, false };
+  auto occ = count_occ(b, p);
+  cout << "occ=" << occ << endl;
 
   /*MapSum m;
 

@@ -1,4 +1,7 @@
-#pragma once
+#ifndef __CONCURRENCY_TESTS_H__
+#define __CONCURRENCY_TESTS_H__
+
+#include "concurrency.h"
 
 void c19_3_interleaving_threads_test()
 {
@@ -8,9 +11,9 @@ void c19_3_interleaving_threads_test()
   static const bool EVEN_TURN = false;
   bool current_turn = ODD_TURN;
 
-  auto worker = [&m, &cv, &current_turn](int start, bool turn, string name) {
+  auto worker = [&m, &cv, &current_turn](int start, bool turn, std::string name) {
     std::thread::id my_id = std::this_thread::get_id();
-    std::unique_lock<mutex> lock_t(m, defer_lock);
+    std::unique_lock<std::mutex> lock_t(m, std::defer_lock);
 
     lock_t.lock();
     std::cout << "starting thread " << name << " with id = " << my_id << std::endl;
@@ -137,51 +140,24 @@ private:
   std::mutex exclusive_mx;
 };
 
-class semaphore {
-public:
-  semaphore(int count) :
-    count_(count)
-  {}
-
-  void wait()
-  {
-    std::unique_lock<std::mutex> lock_(mx_);
-    --count_;
-    while (count_ < 0) {
-      cv_.wait(lock_);
-    }
-  }
-
-  void signal()
-  {
-    std::unique_lock<std::mutex> lock_(mx_);
-    ++count_;
-    if (count_ <= 0) {
-      lock_.unlock();
-      cv_.notify_one();
-    }
-  }
-
-  std::mutex mx_;
-  std::condition_variable cv_;
-  int count_;
-};
 
 void c19_6_read_writer_lock_test()
 {
+  using namespace std::chrono_literals;
+
   std::array<std::string, 4> bank;
   volatile bool shutdown = false;
   std::mutex console_m;
   reader_writer_first_lock bank_lock;
 
-  auto read_worker = [&bank, &bank_lock, &shutdown, &console_m](string name, int slot)
+  auto read_worker = [&bank, &bank_lock, &shutdown, &console_m](std::string name, int slot)
   {
     {
       std::lock_guard<std::mutex> con_lock(console_m);
       std::cout << "consumer thread " << name << " starting..." << std::endl;
     }
 
-    string data;
+    std::string data;
     while (!shutdown) {
       bank_lock.lock_shared();
       data = bank[slot];
@@ -195,7 +171,7 @@ void c19_6_read_writer_lock_test()
     }
   };
 
-  auto write_worker = [&bank, &bank_lock, &shutdown, &console_m](string name)
+  auto write_worker = [&bank, &bank_lock, &shutdown, &console_m](std::string name)
   {
     {
       std::lock_guard<std::mutex> con_lock(console_m);
@@ -242,69 +218,10 @@ void c19_6_read_writer_lock_test()
   }
 }
 
-class spin_lock {
-public:
-  spin_lock() :
-    state(FREE_STATE)
-  {}
-
-  void lock()
-  {
-    int tst_val = FREE_STATE;
-    while (!state.compare_exchange_strong(tst_val, AQUIRED_STATE)) {
-      /* do nothing, just spin*/
-    }
-  }
-
-  void unlock()
-  {
-    state.store(FREE_STATE);
-  }
-
-private:
-  static const int FREE_STATE = 0;
-  static const int AQUIRED_STATE = 1;
-  std::atomic_int state;
-};
-
-template<class T, size_t SIZE = 16>
-class concurrent_bounded_queue {
-
-public:
-  concurrent_bounded_queue() :
-    next_in(0),
-    next_out(0),
-    can_produce(SIZE),
-    can_consume(0)
-  {}
-
-  void enqueue(T& val)
-  {
-    can_produce.wait();
-    buffer[next_in++] = val;
-    next_in %= SIZE;
-    can_consume.signal();
-  }
-
-  T dequeue()
-  {
-    can_consume.wait();
-    T& val = buffer[next_out++];
-    next_out %= SIZE;
-    can_produce.signal();
-    return val;
-  }
-
-private:
-  std::array<T, SIZE> buffer;
-  int next_in;
-  int next_out;
-  semaphore can_produce;
-  semaphore can_consume;
-};
-
 void c19_producer_consumer_problem_concurrent_queue_test()
 {
+  using namespace std::chrono_literals;
+
   concurrent_bounded_queue<int, 16> q;
   std::mutex console_mx;
   spin_lock producer_lock;
@@ -313,7 +230,7 @@ void c19_producer_consumer_problem_concurrent_queue_test()
 
   auto consumer_worker = [&](int id)
   {
-    std::string name = "consumer_" + to_string(id);
+    std::string name = "consumer_" + std::to_string(id);
 
     {
       std::lock_guard<std::mutex> con_lock(console_mx);
@@ -331,7 +248,7 @@ void c19_producer_consumer_problem_concurrent_queue_test()
 
   auto producer_worker = [&](int id)
   {
-    std::string name = "producer_" + to_string(id);
+    std::string name = "producer_" + std::to_string(id);
 
     {
       std::lock_guard<std::mutex> con_lock(console_mx);
@@ -362,11 +279,11 @@ void c19_producer_consumer_problem_concurrent_queue_test()
   std::thread pool[consumer_count + producer_count];
 
   for (int i = 0; i < consumer_count; ++i) {
-    pool[i] = std::move(std::thread(consumer_worker, i));
+    pool[i] = std::thread(consumer_worker, i);
   }
 
   for (int i = consumer_count; i < consumer_count + producer_count; ++i) {
-    pool[i] = std::move(std::thread(producer_worker, i - consumer_count));
+    pool[i] = std::thread(producer_worker, i - consumer_count);
   }
 
   std::getchar();
@@ -379,6 +296,8 @@ void c19_producer_consumer_problem_concurrent_queue_test()
 
 void c19_producer_consumer_problem_test()
 {
+  using namespace std::chrono_literals;
+
   std::array<int, 16> buffer;
   int next_in = 0;
   int next_out = 0;
@@ -392,7 +311,7 @@ void c19_producer_consumer_problem_test()
 
   auto consumer_worker = [&](int id)
   {
-    std::string name = "consumer_" + to_string(id);
+    std::string name = "consumer_" + std::to_string(id);
 
     {
       std::lock_guard<std::mutex> con_lock(console_mx);
@@ -420,7 +339,7 @@ void c19_producer_consumer_problem_test()
 
   auto producer_worker = [&](int id)
   {
-    std::string name = "producer_" + to_string(id);
+    std::string name = "producer_" + std::to_string(id);
 
     {
       std::lock_guard<std::mutex> con_lock(console_mx);
@@ -455,11 +374,11 @@ void c19_producer_consumer_problem_test()
   std::thread pool[consumer_count + producer_count];
 
   for (int i = 0; i < consumer_count; ++i) {
-    pool[i] = std::move(std::thread(consumer_worker, i));
+    pool[i] = std::thread(consumer_worker, i);
   }
 
   for (int i = consumer_count; i < consumer_count + producer_count; ++i) {
-    pool[i] = std::move(std::thread(producer_worker, i - consumer_count));
+    pool[i] = std::thread(producer_worker, i - consumer_count);
   }
 
   std::getchar();
@@ -469,3 +388,5 @@ void c19_producer_consumer_problem_test()
     t.join();
   }
 }
+
+#endif
